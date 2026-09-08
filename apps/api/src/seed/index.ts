@@ -520,6 +520,8 @@ async function runDemoPayments(users: SeededUsers): Promise<number> {
     kind: 'PHONE' | 'TILL' | 'PAYBILL';
     daysAgo: number;
     fail?: boolean;
+    /** Pay a one-off demo recipient instead of a saved one (used by the rejection). */
+    phone?: string;
   }> = [
     { asset: 'USDT', network: 'TRON', amountKesMajor: 1500, kind: 'PHONE', daysAgo: 1 },
     { asset: 'USDT', network: 'TRON', amountKesMajor: 2450, kind: 'TILL', daysAgo: 2 },
@@ -527,16 +529,33 @@ async function runDemoPayments(users: SeededUsers): Promise<number> {
     { asset: 'USDT', network: 'TRON', amountKesMajor: 750, kind: 'TILL', daysAgo: 5 },
     { asset: 'BTC', network: 'BITCOIN', amountKesMajor: 12400, kind: 'PHONE', daysAgo: 8 },
     { asset: 'ETH', network: 'ETHEREUM', amountKesMajor: 4300, kind: 'PAYBILL', daysAgo: 11 },
-    { asset: 'USDT', network: 'TRON', amountKesMajor: 900, kind: 'PHONE', daysAgo: 14, fail: true },
+    // Rejected by the simulated rail itself (the demo number ending 0000 is what
+    // the sandbox provider refuses), so the failure, the compensating entries and
+    // the recovery message all come from the real path rather than a forced write.
+    { asset: 'USDT', network: 'TRON', amountKesMajor: 900, kind: 'PHONE', daysAgo: 14, fail: true, phone: '0700000000' },
     { asset: 'USDC', network: 'SOLANA', amountKesMajor: 2100, kind: 'PHONE', daysAgo: 17 },
   ];
   let completed = 0;
   for (const recipe of recipes) {
-    const recipient = db.maybeOne<{ id: string; kind: string; display_name: string; phone: string | null }>(
+    // Prefer a *verified* saved recipient, newest first: the rejection demo below
+    // deliberately creates an unverified one, and recipes must not inherit it by
+    // accident just because it sorts last.
+    let recipient = db.maybeOne<{ id: string; kind: string; display_name: string; phone: string | null }>(
       `SELECT id, kind, display_name, phone FROM payment_recipients
-       WHERE user_id = ? AND kind = ? ORDER BY created_at DESC LIMIT 1`,
+       WHERE user_id = ? AND kind = ?
+       ORDER BY (verification_status = 'VERIFIED') DESC, created_at DESC LIMIT 1`,
       [users.customer, recipe.kind],
     );
+    if (recipe.phone) {
+      const saved = recipients.upsert(
+        users.customer,
+        { kind: 'PHONE', displayName: 'REJECTED DEMO NUMBER', phone: recipe.phone, favourite: false, country: 'KE' },
+        'MPESA',
+      );
+      // Number ends 0000, which the sandbox name-resolution treats as unresolvable:
+      // this row demonstrates the unverifiable-name warning *and* a rail rejection.
+      recipient = { id: saved.id, kind: 'PHONE', display_name: saved.displayName, phone: saved.phone ?? null };
+    }
     if (!recipient) continue;
     try {
       const quote = quotes.create({
@@ -546,7 +565,7 @@ async function runDemoPayments(users: SeededUsers): Promise<number> {
         kind: recipe.kind,
         recipientAmountKesMajor: recipe.amountKesMajor,
         recipientId: recipient.id,
-        verifiedRecipient: true,
+        verifiedRecipient: !recipe.fail,
       });
       const created = await payments.create({
         userId: users.customer,
@@ -556,18 +575,7 @@ async function runDemoPayments(users: SeededUsers): Promise<number> {
         note: 'Seeded demo payment',
       });
       const paymentId = created.payment.id;
-      if (recipe.fail) {
-        // Drive it to the rail, then make the partner reject it, so the history
-        // shows a real failure + refund trail rather than a synthetic row.
-        await sandboxAction(paymentId);
-        await payments.drive(paymentId, 'seed');
-        continue;
-      }
       await sandboxAction(paymentId);
-      for (let i = 0; i < 6; i += 1) {
-        await payments.drive(paymentId, 'seed');
-        await sleep(40);
-      }
       const state = paymentRepo.byId(paymentId)?.status;
       if (state === 'COMPLETED' || state === 'FAILED') completed += 1;
       backdate(paymentId, recipe.daysAgo);
