@@ -37,7 +37,9 @@ def find_call(src, i):
     return None, len(src)
 
 problems = []
-root = pathlib.Path('src')
+# Resolve against the repo, not the caller's cwd, so `npm run check:sql` works from
+# anywhere and CI can run it from the root.
+root = pathlib.Path(__file__).resolve().parent.parent / 'apps' / 'api' / 'src'
 for path in sorted(root.rglob('*.ts')):
     src = path.read_text()
     for m in re.finditer(r'INSERT(?:\s+OR\s+IGNORE)?\s+INTO\s+(\w+)', src):
@@ -64,7 +66,7 @@ for path in sorted(root.rglob('*.ts')):
             nparams = len(split_top(params))
         nq = vals.count('?')
         if ncols != nvals or (nparams is not None and nq != nparams):
-            problems.append(f"{path}:{line}: {table}: {ncols} columns / {nvals} value slots / {nparams if nparams is not None else '?'} bound params")
+            problems.append(f"{path.relative_to(root.parents[2])}:{line}: {table}: {ncols} columns / {nvals} value slots / {nparams if nparams is not None else '?'} bound params")
 if problems:
     print('\n'.join(problems)); print(f'{len(problems)} issue(s)'); sys.exit(1)
 print('all INSERT statements agree')

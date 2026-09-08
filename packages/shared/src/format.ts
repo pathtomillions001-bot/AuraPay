@@ -47,20 +47,20 @@ export function formatCryptoRaw(minor: bigint, asset: AssetCode): string {
   return formatAmount(minor, asset);
 }
 
-/** Significant-digit aware precision: 0.00412 BTC must not render as "0". */
+/**
+ * Significant-digit aware precision. A sub-unit amount needs *more* decimals, not
+ * fewer: `0.00002807 BTC` rendered at two decimals says `0.00`, and a money
+ * document that says zero for a real fee is a lie by rounding.
+ */
 function naturalDecimals(minor: bigint, asset: AssetCode): number {
   const scale = ASSET_SCALES[asset];
   const abs = minor < 0n ? -minor : minor;
-  if (abs === 0n) return scale;
+  if (abs === 0n) return Math.min(scale, 2);
   const whole = abs / 10n ** BigInt(scale);
   if (whole > 0n) return Math.min(scale, 6);
-  let decimals = scale;
-  while (decimals > 2) {
-    const threshold = 10n ** BigInt(scale - decimals + 4);
-    if (abs >= threshold) break;
-    decimals -= 1;
-  }
-  return Math.min(scale, decimals);
+  let decimals = Math.min(scale, 4);
+  while (decimals < scale && abs < 10n ** BigInt(scale - decimals + 3)) decimals += 1;
+  return decimals;
 }
 
 export function formatRate(kesPerUnit: string, asset: AssetCode): string {
