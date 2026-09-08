@@ -91,7 +91,7 @@ function toView(row: LinkRow, withQr = false): LinkView {
   return {
     id: row.id,
     token: row.token,
-    url: `${config.publicUrl}/pay/${row.token}`,
+    url: `${config.publicUrl}/checkout/${row.token}`,
     title: row.title,
     description: row.description,
     amountMinor: row.amount_minor,

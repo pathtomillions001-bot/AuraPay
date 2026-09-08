@@ -1,4 +1,5 @@
 import { DomainError, TIER_LIMITS, type PublicUser } from '@aurapay/shared';
+import { normalizeRoles } from '@aurapay/shared';
 import { getDb } from '../db/index.js';
 import { config } from '../config.js';
 import { decryptString, encryptString, hashPassword, randomToken, sha256, verifyPassword } from '../lib/crypto.js';
@@ -376,7 +377,9 @@ export function toPublicUser(row: UserRow): PublicUser {
     phone: row.phone,
     country: row.country,
     locale: row.locale,
-    roles: safeJsonArray(row.roles),
+    // Canonical casing on the way out, so every consumer — the admin gate, the merchant
+    // nav, the browser — compares the same shape the database actually holds.
+    roles: normalizeRoles(safeJsonArray(row.roles)),
     kycStatus: row.kyc_status as PublicUser['kycStatus'],
     kycTier: row.kyc_tier as PublicUser['kycTier'],
     twoFactorEnabled: row.two_factor_enabled === 1,

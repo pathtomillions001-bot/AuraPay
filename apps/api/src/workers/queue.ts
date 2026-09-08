@@ -151,7 +151,11 @@ export async function runDue(limit = 20): Promise<{ ran: number; done: number; f
         log.error('job parked after exhausting retries', { job: job.id, type: job.type, attempts, error: message });
       } else {
         out.failed += 1;
-        log.warn('job failed, will retry', { job: job.id, type: job.type, attempts, retryIn: backoff, error: message });
+        // The frame matters: a job that fails on a malformed statement and a job that
+        // fails because a partner is down look identical in the message alone, and only
+        // one of them is a bug in this codebase.
+        const frame = (error as Error).stack?.split('\n').slice(1, 5).map((l) => l.trim()).join(' <- ') ?? '';
+        log.warn('job failed, will retry', { job: job.id, type: job.type, attempts, retryIn: backoff, error: message, where: frame });
       }
     }
   }

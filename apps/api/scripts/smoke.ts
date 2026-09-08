@@ -18,10 +18,21 @@ if (config.mode !== 'sandbox') {
 payments; // wiring check
 
 const summary = await seed({ runDemoPayments: true });
+
+// Refresh unconditionally. `seed()` is a no-op on an already-seeded database, so without
+// this a second `npm run smoke` quotes against the *previous* run's price rows and every
+// quote dies with QUOTE_STALE_RATE — a failure that looks like a pricing bug and is
+// really a fixture that only works once.
+{
+  const fx = await import('../src/domain/fx.js');
+  const refreshed = await fx.refreshRates();
+  console.log('rates:', JSON.stringify(refreshed));
+}
 console.log('seed:', JSON.stringify(summary, null, 2));
 console.log(describeSeed());
 
 const db = getDb();
+
 const kelvin = db.one<{ id: string }>(`SELECT id FROM users WHERE email = 'kelvin@aurapay.dev'`);
 const recipient = db.one<{ id: string; phone: string | null }>(
   `SELECT id, phone FROM payment_recipients WHERE user_id = ? AND kind = 'PHONE' LIMIT 1`,
@@ -94,5 +105,42 @@ console.log('receipt row:', row0 ? { id: row0.id, reference: row0.reference, sha
 const payload = receipts.byPayment(created.payment.id);
 const text = payload ? receipts.asText(payload) : '';
 console.log('--- receipt excerpt ---\n' + text.split('\n').slice(0, 18).join('\n'));
+
+// Formatting invariants on the printed document. These exist because this codebase has
+// twice rendered money correctly in the database and wrongly on paper: a 6-decimal asset
+// printed at 2 decimals ("0.00 BTC") and a rate stored ×10^12 printed un-divided
+// ("1 USDT = 128,934,652,108,500.00 KES"). Both were invisible to every other check.
+// The expectations are shape + value, not a snapshot of the formatters.
+const printed = (label: string): string => {
+  const line = text.split('\n').find((l) => l.trimStart().startsWith(label));
+  if (!line) return '';
+  return line.slice(line.indexOf(label) + label.length).replace(/\u00a0/g, ' ').replace(/\s+/g, ' ').trim();
+};
+const formatFaults: string[] = [];
+const expectShape = (name: string, value: string, pattern: RegExp, sanity?: (v: number) => boolean) => {
+  if (!pattern.test(value)) formatFaults.push(`${name}: "${value}" is not shaped like a money/rate figure`);
+  else if (sanity) {
+    const num = Number(value.replace(/[^0-9.]/g, ''));
+    if (!Number.isFinite(num) || !sanity(num)) formatFaults.push(`${name}: "${value}" is out of any sane range`);
+  }
+};
+const KES_FIGURE = /^Ksh \d{1,3}(,\d{3})*\.\d{2}$/;
+const USDT_FIGURE = /^\d+\.\d{2,6} USDT( \(.*)?$/; // formatCrypto puts the unit after the number
+expectShape('receipt.recipientGets', printed('Recipient gets:'), KES_FIGURE, (n) => n === 3200);
+expectShape('receipt.paidWith', printed('Paid with:'), new RegExp(`(${KES_FIGURE.source}|${USDT_FIGURE.source})`), (n) => n > 1 && n < 100_000);
+expectShape('receipt.assetAmount', printed('amount:'), USDT_FIGURE, (n) => n > 1 && n < 1000);
+expectShape('receipt.networkFee', printed('network fee:'), USDT_FIGURE, (n) => n >= 0 && n < 100);
+expectShape('receipt.midRate', printed('Mid-market rate:'), /^1 USDT = \d{1,3}(,\d{3})*\.\d{2,6} KES$/, (n) => n > 1 && n < 1_000_000);
+expectShape('receipt.appliedRate', printed('Your rate:'), /^1 USDT = \d{1,3}(,\d{3})*\.\d{2,6} KES$/, (n) => n > 1 && n < 1_000_000);
+if (payload) {
+  if (payload.amounts.cryptoAmountMinor === '0') formatFaults.push('receipt.cryptoAmountMinor parsed to zero');
+  if (BigInt(payload.amounts.recipientAmountMinor) !== 320_000n) formatFaults.push('recipient amount is not Ksh 3,200.00 in minor units');
+}
+if (formatFaults.length > 0) {
+  console.error('FORMATTING FAULTS:\n' + formatFaults.map((f) => `  · ${f}`).join('\n'));
+  process.exitCode = 1;
+} else {
+  console.log('receipt formatting: recipient/asset amounts and both rates render at sane precision');
+}
 console.log('integrity:', row0 ? receipts.verifyIntegrity(row0.id) : null);
 console.log('password for demo accounts:', DEMO_PASSWORD);

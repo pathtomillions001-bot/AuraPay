@@ -1,4 +1,4 @@
-import { displayStatus, isTerminal, type PaymentState } from '@aurapay/shared';
+import { displayStatus, isTerminal, DomainError, type PaymentState } from '@aurapay/shared';
 import { getDb } from '../db/index.js';
 import { id, nowIso } from '../lib/ids.js';
 import { displayHandle, type RecipientRecord } from './recipients.js';
@@ -77,7 +77,17 @@ export function byReference(reference: string): PaymentRow | null {
 
 export function requireById(paymentId: string): PaymentRow {
   const row = byId(paymentId);
-  if (!row) throw new Error(`payment ${paymentId} not found`);
+  if (!row) {
+    // A DomainError, not a bare Error: an id typed into a bookmark, a payment from a
+    // reseeded database, or a stale link must read as "we have no such payment" (404).
+    // As an unhandled error it became a 500 telling the customer "the payment was not
+    // changed" — technically true, and about the most confusing thing we could say.
+    throw new DomainError(
+      'NOT_FOUND',
+      'We have no payment with that id on this account.',
+      { recovery: 'go_back', reference: paymentId },
+    );
+  }
   return row;
 }
 

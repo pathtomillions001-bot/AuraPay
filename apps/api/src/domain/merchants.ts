@@ -72,11 +72,12 @@ export function businessesForUser(userId: string): MerchantView[] {
     `SELECT b.*, m.role FROM businesses b JOIN business_members m ON m.business_id = b.id WHERE m.user_id = ? AND m.status = 'ACTIVE'`,
     [userId],
   );
-  const fallback = db.all<BusinessRow & { role: string }>(
-    `SELECT b.*, 'OWNER' AS role FROM businesses b WHERE b.owner_user_id = ?`,
-    [userId],
-  ).filter((row) => !rows.some((existing) => existing.id === row.id));
-  return [...rows, ...fallback].map(toView);
+  // Membership is the single source of truth for "whose business is this":
+  // `business_members` with role OWNER is written at onboarding, so there is no
+  // second owner column to fall back to. An earlier revision of this function read
+  // `businesses.owner_user_id`, which does not exist — a query that failed on every
+  // merchant screen rather than degrading quietly. Kept out deliberately.
+  return rows.map(toView);
 }
 
 function toView(row: BusinessRow & { role?: string }): MerchantView {

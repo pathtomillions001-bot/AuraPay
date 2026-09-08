@@ -1,4 +1,4 @@
-import { formatCrypto, formatDateTime, formatKes, formatRate, shortId, type AssetCode } from '@aurapay/shared';
+import { formatCrypto, formatDateTime, formatKes, formatScaledRate, shortId, type AssetCode } from '@aurapay/shared';
 import { getDb } from '../db/index.js';
 import { LEGAL_DISCLAIMER } from '../config.js';
 import { sha256 } from '../lib/crypto.js';
@@ -149,8 +149,8 @@ export function buildPayload(paymentId: string, forcedReceiptId?: string): Recei
       network: row.network,
     },
     rates: {
-      midRateFormatted: formatRate(row.mid_rate_scaled, asset),
-      appliedRateFormatted: formatRate(row.fx_rate_scaled, asset),
+      midRateFormatted: formatScaledRate(row.mid_rate_scaled, asset),
+      appliedRateFormatted: formatScaledRate(row.fx_rate_scaled, asset),
       spreadBps: Number(fees.spreadBps ?? 0),
       spreadNote:
         Number(fees.spreadBps ?? 0) > 0

@@ -81,6 +81,7 @@ export async function seed(opts: { runDemoPayments?: boolean } = {}): Promise<Se
   const demoPayments = (opts.runDemoPayments ?? true) ? await runDemoPayments(users) : 0;
   sandbox.storeDemoFeed();
 
+  await drainUntilSettled();
   const problems = ledger.verify();
   if (problems.length) {
     log.error('seeded ledger does not balance', { problems });
@@ -592,16 +593,44 @@ async function runDemoPayments(users: SeededUsers): Promise<number> {
  * honest) if the payments in it really went through every state, receipts and
  * all, rather than being parked mid-flight by a seeding shortcut.
  */
-async function sandboxAction(paymentId: string): Promise<void> {
+async function sandboxAction(paymentId: string, budgetMs = 25_000): Promise<void> {
   await sandbox.simulateDeposit({ paymentId });
-  for (let i = 0; i < 60; i += 1) {
+  // A time budget, not a fixed number of spins: the sandbox latencies are wall-clock
+  // timers, so on a loaded machine a 60-iteration loop burns out before the simulated
+  // confirmations are due and the history is left half-written.
+  const deadline = Date.now() + budgetMs;
+  for (;;) {
     await queue.sweep();
     await queue.runDue(40);
     const status = paymentRepo.byId(paymentId)?.status;
     if (status && ['COMPLETED', 'FAILED', 'REFUNDED', 'CANCELLED'].includes(status)) return;
+    if (Date.now() > deadline) {
+      log.warn('demo payment did not reach a final state within the seeding window', { paymentId, status });
+      return;
+    }
     await sleep(60);
   }
-  log.warn('demo payment did not reach a final state within the seeding window', { paymentId });
+}
+
+/**
+ * Settle anything the per-payment windows left in flight before the seeded ledger is
+ * judged. `ledger.verify()` compares cached wallet balances against liabilities, and a
+ * payment mid-settlement legitimately has both sides outstanding — verifying then reports
+ * a mismatch that disappears a second later. Verifying a calm database is the point.
+ */
+async function drainUntilSettled(budgetMs = 30_000): Promise<number> {
+  const db = getDb();
+  const openSql = `SELECT COUNT(*) AS c FROM payment_intents
+     WHERE fee_snapshot LIKE '%Seeded demo payment%'
+       AND status NOT IN ('COMPLETED', 'FAILED', 'REFUNDED', 'CANCELLED', 'EXPIRED')`;
+  const deadline = Date.now() + budgetMs;
+  for (;;) {
+    const open = db.maybeOne<{ c: number }>(openSql)?.c ?? 0;
+    if (open === 0 || Date.now() > deadline) return open;
+    await queue.sweep();
+    await queue.runDue(40);
+    await sleep(150);
+  }
 }
 
 function backdate(paymentId: string, daysAgo: number): void {

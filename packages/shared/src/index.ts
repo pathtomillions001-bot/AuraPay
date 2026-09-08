@@ -9,3 +9,4 @@ export * from './errors.js';
 export * from './format.js';
 export * from './risk.js';
 export * from './contracts.js';
+export * from './roles.js';

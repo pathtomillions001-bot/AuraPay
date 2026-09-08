@@ -155,7 +155,7 @@ export function releaseHold(input: { userId: string; asset: AssetCode; network: 
   db.run(
     `UPDATE wallets
      SET reserved_minor = CAST(MAX(0, CAST(reserved_minor AS INTEGER) - CAST(? AS INTEGER)) AS TEXT),
-         available_minor = CAST(CAST(available_minor AS INTEGER) + CAST(? AS INTEGER)) AS TEXT,
+         available_minor = CAST(CAST(available_minor AS INTEGER) + CAST(? AS INTEGER) AS TEXT),
          updated_at = ?
      WHERE id = ?`,
     [input.amountMinor.toString(), input.amountMinor.toString(), nowIso(), wallet.id],
@@ -196,6 +196,51 @@ export function credit(input: {
   db.run(
     `UPDATE wallets
      SET available_minor = CAST(CAST(available_minor AS INTEGER) + CAST(? AS INTEGER) AS TEXT), updated_at = ?
+     WHERE id = ?`,
+    [input.amountMinor.toString(), nowIso(), wallet.id],
+  );
+  publish(`user:${input.userId}`, 'balances', 'balances.changed', { asset: input.asset, network: input.network });
+  return db.one<WalletRow>('SELECT * FROM wallets WHERE id = ?', [wallet.id]);
+}
+
+/**
+ * The mirror of `credit`: take an amount back out of a wallet's available balance.
+ *
+ * This exists because a reversal has two sides. When a payment fails after its deposit
+ * was booked, the compensating journal already removed the credit from the customer's
+ * liability in the books — but the cache is what the UI, the balance endpoint and the
+ * next payment all read. Without this call the customer keeps money the ledger says they
+ * never had, and `verify:ledger` reports a wallet above its liability forever.
+ *
+ * Clamped at zero on purpose: a negative cached balance would be displayed as a real
+ * balance everywhere it is read, so the clamp plus this warning is the lesser evil, and
+ * reconcile() is the tool that tells us when it happened.
+ */
+export function debit(input: {
+  userId: string;
+  asset: AssetCode;
+  network: NetworkCode;
+  amountMinor: bigint;
+  reason?: string;
+}): WalletRow {
+  const db = getDb();
+  if (input.amountMinor <= 0n) throw new DomainError('VALIDATION_FAILED', 'Debit amount must be positive.');
+  const wallet = walletFor(input.userId, input.asset, input.network);
+  if (!wallet) throw new DomainError('NOT_FOUND', `No ${input.asset} wallet on ${input.network} for this account.`);
+  const available = BigInt(wallet.available_minor);
+  if (available < input.amountMinor) {
+    log.warn('debit clamped to the cached balance', {
+      userId: input.userId,
+      asset: input.asset,
+      network: input.network,
+      requested: input.amountMinor.toString(),
+      cached: available.toString(),
+      reason: input.reason ?? '',
+    });
+  }
+  db.run(
+    `UPDATE wallets
+     SET available_minor = CAST(MAX(0, CAST(available_minor AS INTEGER) - CAST(? AS INTEGER)) AS TEXT), updated_at = ?
      WHERE id = ?`,
     [input.amountMinor.toString(), nowIso(), wallet.id],
   );

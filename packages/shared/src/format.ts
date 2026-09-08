@@ -67,7 +67,45 @@ export function formatRate(kesPerUnit: string, asset: AssetCode): string {
   const n = Number(kesPerUnit);
   if (!Number.isFinite(n)) return '—';
   const dp = n > 1000 ? 2 : n > 10 ? 4 : 6;
-  return `1 ${asset} = ${n.toFixed(dp).replace(/\B(?=(\d{3})+(?!\d))/g, ',')} KES`;
+  return `1 ${asset} = ${groupDecimal(n, dp)} KES`;
+}
+
+/**
+ * Fixed-point text with thousands separators on the integer part only. Grouping the
+ * whole string (the old behaviour here) turned `128.9300` into `128.9,300` — a rate
+ * that looks like a typo and is not a number any more.
+ */
+function groupDecimal(value: number, dp: number): string {
+  const fixed = Math.abs(value).toFixed(dp);
+  const [whole = '0', frac = ''] = fixed.split('.');
+  const grouped = whole.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  const sign = value < 0 ? '−' : '';
+  return dp > 0 ? `${sign}${grouped}.${frac}` : `${sign}${grouped}`;
+}
+
+/**
+ * A `×10^12` scaled rate → `1 USDT = 128.9347 KES`.
+ *
+ * Deliberately in BigInt. The receipt used to be produced by handing the scaled
+ * integer to a float formatter, which printed "1 USDT = 128,934,652,108,500.00 KES"
+ * on a real document — a rate that is 10^12 out is not a rounding detail, it is the
+ * number the customer would use to check their own arithmetic.
+ */
+export function formatScaledRate(rateScaled: bigint | string, asset: string, dp = 4): string {
+  let scaled: bigint;
+  try {
+    scaled = typeof rateScaled === 'string' ? BigInt(rateScaled.trim()) : rateScaled;
+  } catch {
+    return '\u2014';
+  }
+  if (scaled <= 0n) return '\u2014';
+  const unit = 1_000_000_000_000n;
+  const whole = scaled / unit;
+  const rest = scaled % unit;
+  const safeDp = Math.max(0, Math.min(12, dp));
+  const frac = safeDp === 0 ? '' : `.${((rest * 10n ** BigInt(safeDp)) / unit).toString().padStart(safeDp, '0')}`;
+  const grouped = whole.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  return `1 ${asset} = ${grouped}${frac} KES`;
 }
 
 export function compactNumber(value: number): string {

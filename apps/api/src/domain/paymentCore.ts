@@ -598,12 +598,28 @@ export async function failPayment(
   const a = amountsOf(row);
   if (row.liquidity_reservation_id) liquidity.release(row.liquidity_reservation_id, `payment ${row.reference} failed`);
   if (reversed.entries > 0) {
-    // The deposit credit was reversed by the compensating journal, so the cache
-    // is restored by releasing the hold (which returns the amount to available).
-    wallets.releaseHold({ userId: ownerOf(row), asset: a.asset, network: a.network as never, amountMinor: a.totalDebit });
-  } else {
-    wallets.releaseHold({ userId: ownerOf(row), asset: a.asset, network: a.network as never, amountMinor: a.totalDebit });
+    // A deposit really was booked and the compensating journal has just taken it out of
+    // the books, so the cache has to give the same amount back. Take exactly what the
+    // deposit step credited — not what the customer was invoiced: an under- or
+    // overpayment makes those two numbers differ, and either one taken blind leaves the
+    // wallet out of line with the ledger.
+    const credited = db.maybeOne<{ s: string | null }>(
+      `SELECT COALESCE(SUM(CAST(amount_minor AS INTEGER)), 0) AS s FROM ledger_entries
+       WHERE payment_intent_id = ? AND code = 'USER_CRYPTO_CREDIT'`,
+      [paymentId],
+    )?.s;
+    const creditedMinor = BigInt(credited ?? '0');
+    if (creditedMinor > 0n) {
+      wallets.debit({
+        userId: ownerOf(row),
+        asset: a.asset,
+        network: a.network as never,
+        amountMinor: creditedMinor,
+        reason: `deposit reversal for failed payment ${row.reference}`,
+      });
+    }
   }
+  wallets.releaseHold({ userId: ownerOf(row), asset: a.asset, network: a.network as never, amountMinor: a.totalDebit });
   if (row.user_id) publish(`user:${row.user_id}`, 'balances', 'balances.updated', { reason: `payment ${row.reference} failed` });
   if (row.user_id) {
     notifications.push(row.user_id, {
