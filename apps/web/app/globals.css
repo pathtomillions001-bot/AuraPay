@@ -1,0 +1,122 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: dark;
+  }
+  * {
+    border-color: theme('colors.hair');
+  }
+  html,
+  body {
+    background: theme('colors.abyss');
+    color: theme('colors.ink');
+  }
+  body {
+    font-feature-settings: 'tnum' on, 'lnum' on;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+  }
+  /* The ambient field: one low-contrast halo. It must read as calm
+     infrastructure, and it never sits over a money figure. */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: -30vh -20vw auto -20vw;
+    height: 120vh;
+    background:
+      radial-gradient(45% 35% at 22% 18%, rgba(87, 227, 180, 0.1), transparent 70%),
+      radial-gradient(38% 30% at 78% 8%, rgba(240, 178, 92, 0.08), transparent 72%),
+      radial-gradient(60% 45% at 50% 105%, rgba(33, 44, 60, 0.55), transparent 70%);
+    pointer-events: none;
+    z-index: 0;
+  }
+  ::selection {
+    background: rgba(87, 227, 180, 0.24);
+  }
+  input,
+  select,
+  textarea {
+    font: inherit;
+  }
+  :focus-visible {
+    outline: 2px solid rgba(87, 227, 180, 0.7);
+    outline-offset: 2px;
+  }
+}
+
+@layer components {
+  .panel {
+    @apply relative rounded-xl border border-hair bg-obsidian/80 shadow-lift backdrop-blur-[2px];
+  }
+  .hairline {
+    @apply h-px w-full bg-gradient-to-r from-transparent via-hair to-transparent;
+  }
+  .label {
+    @apply text-[11px] uppercase tracking-[0.16em] text-ink-faint;
+  }
+  .money {
+    @apply font-mono tabular-nums text-ink;
+  }
+  .btn {
+    @apply inline-flex select-none items-center justify-center gap-2 rounded-lg border px-4 py-2.5 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-45;
+  }
+  .btn-primary {
+    @apply btn border-transparent bg-mint text-abyss hover:bg-[#6ff0c3] active:translate-y-[1px];
+  }
+  .btn-ghost {
+    @apply btn border-hair bg-slate-900/60 text-ink hover:border-ink-faint hover:bg-slate-800/70;
+  }
+  .btn-danger {
+    @apply btn border-rose-dim/40 bg-rose/10 text-rose hover:bg-rose/20;
+  }
+  .input {
+    @apply w-full rounded-lg border border-hair bg-slate-950/80 px-3.5 py-2.5 text-ink placeholder:text-ink-faint/70 focus:border-mint-dim focus:outline-none;
+  }
+  .row-hover {
+    @apply transition-colors hover:bg-slate-900/60;
+  }
+}
+
+/* A receipt prints as a document, not a screenshot of a dashboard. */
+@media print {
+  @page {
+    margin: 16mm;
+  }
+  html,
+  body {
+    background: #fff !important;
+    color: #000 !important;
+  }
+  body::before,
+  .no-print {
+    display: none !important;
+  }
+  .panel {
+    border: none !important;
+    background: #fff !important;
+    box-shadow: none !important;
+  }
+  .money,
+  .label,
+  h1,
+  h2,
+  p,
+  td,
+  th,
+  span,
+  div {
+    color: #000 !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    transition-duration: 0.001ms !important;
+  }
+}
