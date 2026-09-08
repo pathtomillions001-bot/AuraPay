@@ -1,0 +1,33 @@
+{
+  "name": "aurapay",
+  "version": "0.1.0",
+  "private": true,
+  "description": "AuraPay — stablecoin-to-local-payments network. Spend digital money; recipients receive KES.",
+  "license": "UNLICENSED",
+  "engines": {
+    "node": ">=20.11"
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm run build -w @aurapay/shared && concurrently -k -n shared,api,web -c yellow,cyan,magenta \"npm run dev -w @aurapay/shared\" \"npm:dev:api\" \"npm:dev:web\"",
+    "dev:api": "npm run dev -w @aurapay/api",
+    "dev:web": "npm run dev -w @aurapay/web",
+    "build": "npm run build -w @aurapay/shared && npm run build -w @aurapay/api && npm run build -w @aurapay/web",
+    "start": "concurrently -n api,web -c cyan,magenta \"npm:start:api\" \"npm:start:web\"",
+    "start:api": "npm run start -w @aurapay/api",
+    "start:web": "npm run start -w @aurapay/web",
+    "seed": "npm run seed -w @aurapay/api",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm run test -w @aurapay/api && npm run test -w @aurapay/shared",
+    "lint": "eslint . --ext .ts,.tsx --max-warnings 0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "concurrently": "^9.1.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  }
+}
