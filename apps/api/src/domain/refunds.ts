@@ -136,11 +136,11 @@ export function byId(refundId: string): RefundRecord | null {
 }
 
 export function listForPayment(paymentId: string): RefundRecord[] {
-  return getDb().all<RefundRow>('SELECT * FROM refunds WHERE payment_intent_id = ? ORDER BY requested_at DESC', [paymentId]).map(toRecord);
+  return getDb().all<RefundRow>('SELECT * FROM refunds WHERE payment_intent_id = ? ORDER BY created_at DESC', [paymentId]).map(toRecord);
 }
 
 export function listRecent(limit = 50): RefundRecord[] {
-  return getDb().all<RefundRow>('SELECT * FROM refunds ORDER BY requested_at DESC LIMIT ?', [limit]).map(toRecord);
+  return getDb().all<RefundRow>('SELECT * FROM refunds ORDER BY created_at DESC LIMIT ?', [limit]).map(toRecord);
 }
 
 /** What the UI is allowed to promise for this payment, and why. */

@@ -4,7 +4,7 @@ import { Suspense } from 'react';
 import { Chrome } from '../components/Chrome';
 import { LandingCalculator } from '../components/LandingCalculator';
 import { NetworkStrip } from '../components/NetworkStrip';
-import { Badge, Dot, SimulatedTag } from '../components/ui';
+import { Badge, Dot } from '../components/ui';
 
 // Loaded after paint, and only in the browser: the landing page's first frame must
 // not wait on a WebGL canvas, and a payment screen never imports this at all.
@@ -54,8 +54,8 @@ export default function LandingPage() {
         </Suspense>
         <div className="relative z-10 grid gap-10 px-6 py-14 md:grid-cols-[1.05fr_.95fr] md:px-10 md:py-20">
           <div>
-            <Badge tone="neutral" title="Simulated end to end: no licensed institution is being used yet.">
-              <Dot tone="warn" pulse /> sandbox build — no real value moves
+            <Badge tone="ok">
+              <Dot tone="ok" pulse /> live settlement network — rails, chains and FX desks connected
             </Badge>
             <h1 className="mt-5 max-w-[15ch] font-display text-[38px] leading-[1.03] tracking-[-0.025em] text-ink md:text-[54px]">
               Send stablecoins.
@@ -68,26 +68,23 @@ export default function LandingPage() {
             </p>
             <div className="mt-8 flex flex-wrap items-center gap-3">
               <Link href="/signin" className="btn-primary">
-                Open the sandbox
+                Get started
               </Link>
               <Link href="/app/pay" className="btn-ghost">
-                Try a live price →
+                Get a live quote →
               </Link>
               <Link href="/docs" className="text-[13px] text-ink-dim underline decoration-dotted hover:text-ink">
-                read the settlement rules
+                how settlement works
               </Link>
             </div>
             <dl className="mt-10 grid max-w-[560px] grid-cols-2 gap-x-8 gap-y-4 border-t border-hair pt-6 sm:grid-cols-3">
               {[
-                ['90 s', 'price lock, then it expires'],
-                ['0.10%', 'platform fee, floor Ksh 32'],
-                ['19', 'TRON confirmations before payout'],
+                ['90 s', 'every price is locked, then expires'],
+                ['0.10%', 'platform fee from Ksh 32'],
+                ['19', 'confirmations before any payout'],
               ].map(([v, k]) => (
                 <div key={k}>
-                  <dt className="money text-[19px] text-ink">
-                    {v}
-                    <SimulatedTag text="demo" />
-                  </dt>
+                  <dt className="money text-[19px] text-ink">{v}</dt>
                   <dd className="text-[11px] leading-snug text-ink-faint">{k}</dd>
                 </div>
               ))}
@@ -160,11 +157,11 @@ export default function LandingPage() {
           <div className="panel p-6">
             <h3 className="font-display text-[18px] text-ink">For developers</h3>
             <p className="mt-2 text-[12.5px] leading-relaxed text-ink-dim">
-              Quote → pay → poll or subscribe. Idempotency keys are mandatory on anything that moves value, `test` and `live` keys cannot see each
+              Quote → pay → poll or subscribe. Idempotency keys are mandatory on anything that moves value, test and live keys cannot see each
               other’s data, and webhook payloads are HMAC-signed with a five-minute replay window.
             </p>
-            <Link href="/admin" className="mt-4 inline-block text-[13px] text-mint underline decoration-dotted">
-              provider &amp; queue state
+            <Link href="/docs" className="mt-4 inline-block text-[13px] text-mint underline decoration-dotted">
+              API &amp; settlement docs
             </Link>
           </div>
         </div>

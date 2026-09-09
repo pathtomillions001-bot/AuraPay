@@ -114,7 +114,10 @@ export function registerMerchantRoutes(app: FastifyInstance): void {
     const { id } = request.params as { id: string };
     owned(id, auth);
     const rows = getDb().all<Record<string, unknown>>(
-      `SELECT * FROM payouts WHERE business_id = ? ORDER BY created_at DESC LIMIT 100`,
+      `SELECT p.* FROM payouts p
+       JOIN payment_intents pi ON pi.id = p.payment_intent_id
+       WHERE pi.business_id = ?
+       ORDER BY p.created_at DESC LIMIT 100`,
       [id],
     );
     return { payouts: rows.map((r) => ({ ...r, amount_minor: (r['amount_minor'] as string | undefined) ?? null })) };

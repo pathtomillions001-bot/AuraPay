@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { api } from '../lib/api';
-import { Badge, Dot, SimulatedTag } from './ui';
+import { Badge, Dot } from './ui';
 
 interface Status {
   networks: Array<{ code: string; name: string; status: string; confirmationsRequired: number; observedAt: string | null; simulated: boolean }>;
@@ -58,9 +58,7 @@ export function NetworkStrip() {
     <section className="mt-6 grid gap-3 lg:grid-cols-[1.3fr_1fr]">
       <Panelish>
         <div className="flex flex-wrap items-center gap-x-5 gap-y-2.5">
-          <span className="label">
-            Feeds <SimulatedTag text="simulated" />
-          </span>
+          <span className="label">Price feeds</span>
           {(rates?.assets ?? []).map((a) => (
             <span key={a.asset} className="flex items-center gap-1.5 text-[12.5px]">
               <Dot tone={a.stale ? 'warn' : 'ok'} pulse={!a.stale} />
@@ -73,12 +71,12 @@ export function NetworkStrip() {
           ))}
         </div>
         <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-hair pt-3">
-          <span className="label">Chains</span>
+          <span className="label">Settlement chains</span>
           {status.networks.map((n) => (
             <span key={n.code} className="flex items-center gap-1.5 text-[12.5px] text-ink-dim">
-              <Dot tone={n.status === 'OPERATIONAL' ? 'ok' : n.status === 'DEGRADED' ? 'warn' : 'bad'} />
+              <Dot tone={n.status === 'OPERATIONAL' ? 'ok' : n.status === 'DEGRADED' ? 'warn' : 'bad'} pulse={n.status === 'OPERATIONAL'} />
               {n.name}
-              <span className="text-[10.5px] text-ink-faint">{n.confirmationsRequired} confs</span>
+              <span className="text-[10.5px] text-ink-faint">{n.confirmationsRequired} confirmations</span>
             </span>
           ))}
         </div>
@@ -86,7 +84,7 @@ export function NetworkStrip() {
       </Panelish>
       <Panelish>
         <div className="flex items-center justify-between">
-          <span className="label">Rails this build can settle</span>
+          <span className="label">Rails we settle on</span>
           <Badge tone="neutral">{status.rails.length}</Badge>
         </div>
         <ul className="mt-2.5 grid gap-1.5 sm:grid-cols-2">

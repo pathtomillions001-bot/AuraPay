@@ -8,6 +8,7 @@ be answerable without reading chat history.
 ```
 npm -w @aurapay/shared run build     # clean
 npx tsc -p apps/api/tsconfig.json --noEmit   # clean (run from the repo root)
+npx tsc -p apps/web/tsconfig.json --noEmit   # clean (run from the repo root)
 python3 tools/check-sql-inserts.py   # all INSERT column/placeholder lists agree
 MODE=sandbox npm -w @aurapay/api run seed          # full corpus + 8 driven payments
 MODE=sandbox npm -w @aurapay/api run verify:ledger  # "Ledger integrity: OK"
@@ -32,6 +33,31 @@ risk → conversion → float reservation → payout → provider confirmation �
 COMPLETED → refund, with the ledger balanced at each gate. Nothing in that loop
 calls the payment engine directly except the initial create; state advances only
 because evidence exists.
+
+## Fixes on this branch (2026-09-09)
+
+The "Could not continue / service returned something unreadable" errors were four
+**real schema-vs-query mismatches** (500s on GETs) plus a **sign-up flow bug**
+that made every freshly registered account bounce off the CSRF check. All fixed
+and verified end-to-end:
+
+| Symptom | Cause | Fix |
+| --- | --- | --- |
+| `GET /v1/network-status` → 500 (landing page "network board" stuck) | query read `networks.block_height`, which is not a column (heights live on `blockchain_transactions`) | `public.ts` now sub-selects the latest recorded height per chain from the tx ledger |
+| `GET /v1/admin/queue` → 500 | `job_queue` has `type`, not `kind` | `admin.ts` groups/selects `type AS kind` |
+| `GET /v1/admin/refunds`, refund lists | `refunds` has `created_at`, not `requested_at` | `refunds.ts` orders by `created_at` (mapped to `requestedAt`) |
+| `GET /v1/businesses/:id/payouts` → 500 (merchant console) | `payouts` has no `business_id`; ownership is via `payment_intents.business_id` | `merchant.ts` joins through `payment_intents` |
+| "Create account" → then every call 403 CSRF_FAILED | register/login each issue a new session + cookie; the page then sent login again, and its CSRF token had been rotated by register | `signin/page.tsx` now stops after register (register already signs you in) and stores the CSRF token the register response returns |
+
+### UX pass (per direction from the product owner)
+- Landing page reads as a fully operational product ("live settlement network",
+  "Get a live quote", clean stats) — demo labelling is kept where it matters: a
+  single quiet "demo environment" pill + one footer line on pages shared with the
+  product, driven by the API's `mode` so a live deployment shows nothing.
+- The hero is now a proper settlement-core scene: luminous torus knot, orbiting
+  ledger rings, drifting stablecoin chips (USDT/USDC/BTC/ETH) converging on the
+  core, depth stars and a vignette — still lazy-loaded, still disabled for
+  reduced-motion/no-WebGL.
 
 ## Architecture decided and enforced in code
 

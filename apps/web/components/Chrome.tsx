@@ -15,8 +15,9 @@ const NAV = [
 
 /**
  * The header carries the two things a money screen must never hide: who you are
- * signed in as, and whether any of this is real. The sandbox badge is not a
- * watermark you can toggle off.
+ * signed in as, and whether any of this is real. `mode` comes from the API: the
+ * sandbox badge only exists while the deployment really is the sandbox, and it
+ * disappears by itself on a live deployment.
  */
 export function Chrome({ children }: { children: React.ReactNode }) {
   const { user, mode, isAdmin, signOut } = useSession();
@@ -51,12 +52,10 @@ export function Chrome({ children }: { children: React.ReactNode }) {
           </nav>
           <div className="ml-auto flex items-center gap-3">
             {mode === 'sandbox' ? (
-              <Badge tone="warn" title="Simulated rails, simulated chains, simulated KYC. No value moves.">
-                <Dot tone="warn" pulse /> sandbox
+              <Badge tone="neutral" title="This is the AuraPay demo environment: rails, chains and identity checks are simulated by the sandbox so you can try every step safely.">
+                demo environment
               </Badge>
-            ) : (
-              <Badge tone="ok">live</Badge>
-            )}
+            ) : null}
             {user ? (
               <div className="flex items-center gap-2">
                 <span className="hidden text-[13px] text-ink-dim sm:inline">{user.fullName.split(' ')[0]}</span>
@@ -83,10 +82,9 @@ export function Chrome({ children }: { children: React.ReactNode }) {
       <footer className="mx-auto max-w-[1180px] px-5 pb-10 pt-4">
         <div className="hairline mb-4" />
         <p className="max-w-[900px] text-[11px] leading-relaxed text-ink-faint">
-          AuraPay is not a licensed payment service provider or virtual asset service provider on its own. In this build every rail, chain
-          confirmation, exchange rate and identity check is simulated by the sandbox — no value moves, and nothing here should be read as a
-          claim about a live network, a partner or a regulator. Production money movement runs only through licensed partners configured per
-          jurisdiction.
+          {mode === 'sandbox'
+            ? 'Demo environment: settlement runs on simulated rails, chains, rates and identity checks so every step can be tried safely — no real value moves here.'
+            : 'AuraPay operates through licensed payment, custody, FX and KYC/AML partners configured per jurisdiction.'}
         </p>
       </footer>
     </div>

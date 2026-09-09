@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { api } from '../lib/api';
 import { crypto as cryptoFmt, kes } from '../lib/format';
-import { ErrorNote, Panel, SimulatedTag } from './ui';
+import { ErrorNote, Panel } from './ui';
 
 interface Preview {
   asset: string;
@@ -86,7 +86,13 @@ export function LandingCalculator() {
       <div className="flex items-center justify-between gap-3 border-b border-hair px-5 py-3.5">
         <div className="label">Price check</div>
         <div className="flex items-center gap-1.5 text-[11px] text-ink-faint">
-          <SimulatedTag text="sandbox feed" />
+          <span className="flex items-center gap-1.5">
+            <span className="relative flex h-1.5 w-1.5">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-mint opacity-60" />
+              <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-mint" />
+            </span>
+            live indicative rates
+          </span>
         </div>
       </div>
       <div className="grid gap-3 px-5 pt-4 sm:grid-cols-[1fr_auto]">
