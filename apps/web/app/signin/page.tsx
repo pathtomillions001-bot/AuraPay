@@ -34,11 +34,27 @@ function SignInInner() {
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
+    if (user) {
+      // Already signed in (e.g. an account was just created on this device and
+      // the session cookie is live): sending another login would trip the CSRF
+      // wall, which is correct but confusing here.
+      router.replace(next);
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
       if (mode === 'register') {
-        await api('/auth/register', { method: 'POST', body: { email, password, fullName, country: 'KE' } });
+        // Registration creates the session itself: the response carries the
+        // CSRF token the next write needs. Do not send a second login.
+        const created = await api<{ csrfToken?: string }>('/auth/register', {
+          method: 'POST',
+          body: { email, password, fullName, country: 'KE' },
+        });
+        setCsrf(created.csrfToken ?? null);
+        await refresh();
+        router.replace(next);
+        return;
       }
       const res = await api<{ csrfToken: string; requiresTotp?: boolean }>('/auth/login', {
         method: 'POST',

@@ -53,8 +53,17 @@ export function registerPublicRoutes(app: FastifyInstance): void {
 
   app.get('/v1/network-status', async () => {
     const db = getDb();
-    const chains = db.all<{ code: string; status: string; block_height: string | null; fee_estimate_usd_cents: number | null; updated_at: string }>(
-      'SELECT code, status, block_height, fee_estimate_usd_cents, updated_at FROM networks ORDER BY code',
+    // The networks table records the board's own poll state; the latest block
+    // height we can honestly report is the newest one recorded for that chain
+    // in the transaction ledger (there is no height column on `networks`).
+    const chains = db.all<{ code: string; status: string; block_height: string | null; fee_estimate_usd_cents: number | null; observed_at: string | null }>(
+      `SELECT n.code,
+              n.status,
+              n.fee_estimate_usd_cents,
+              COALESCE(n.updated_at, n.last_checked_at) AS observed_at,
+              (SELECT MAX(block_height) FROM blockchain_transactions b
+                WHERE b.network = n.code AND b.block_height IS NOT NULL) AS block_height
+       FROM networks n ORDER BY n.code`,
     );
     return {
       networks: chains.map((n) => ({
@@ -65,7 +74,7 @@ export function registerPublicRoutes(app: FastifyInstance): void {
         // Reported as recorded, never inferred: a stale height is labelled stale.
         blockHeight: n.block_height,
         feeEstimateUsdCents: n.fee_estimate_usd_cents ?? null,
-        observedAt: n.updated_at,
+        observedAt: n.observed_at,
         simulated: config.isSandbox,
       })),
       rails: Object.values(RAILS).map((r) => ({

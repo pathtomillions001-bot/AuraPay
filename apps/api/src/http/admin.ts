@@ -380,11 +380,11 @@ export function registerAdminRoutes(app: FastifyInstance): void {
     return {
       stats: (await import('../workers/queue.js')).stats(),
       byKind: db.all<{ kind: string; status: string; c: number }>(
-        `SELECT kind, status, COUNT(*) AS c FROM job_queue GROUP BY kind, status ORDER BY kind, status`,
+        `SELECT type AS kind, status, COUNT(*) AS c FROM job_queue GROUP BY type, status ORDER BY type, status`,
       ),
       // A dead job means the platform gave up on a step. It is shown, never hidden.
       dead: db.all<Record<string, unknown>>(
-        `SELECT id, kind, dedupe_key, attempts, last_error, updated_at FROM job_queue WHERE status = 'DEAD' ORDER BY updated_at DESC LIMIT 25`,
+        `SELECT id, type AS kind, dedupe_key, attempts, last_error, updated_at FROM job_queue WHERE status = 'DEAD' ORDER BY updated_at DESC LIMIT 25`,
       ),
     };
   });
