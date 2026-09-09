@@ -375,7 +375,11 @@ function createWallets(users: SeededUsers, businesses: Array<{ id: string; name:
     { userId: users.customer, asset: 'USDT', network: 'TRON', amount: '800' },
     { userId: users.customer, asset: 'USDC', network: 'ETHEREUM', amount: '300' },
     { userId: users.customer, asset: 'USDC', network: 'SOLANA', amount: '240' },
-    { userId: users.customer, asset: 'BTC', network: 'BITCOIN', amount: '0.0018' },
+    // Headroom, not a round number: the 12,400 KES demo payment costs ~0.00182 BTC
+    // *including* the miner and service fees. Funding it at 0.0018 left a 1.4%
+    // shortfall against a price that jitters every run, so the seeded history
+    // silently lost its BTC row whenever the simulated feed came in high.
+    { userId: users.customer, asset: 'BTC', network: 'BITCOIN', amount: '0.0024' },
     { userId: users.customer, asset: 'ETH', network: 'ETHEREUM', amount: '0.045' },
     { userId: users.merchantOwner, asset: 'USDT', network: 'TRON', amount: '250' },
   ];
