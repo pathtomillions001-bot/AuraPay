@@ -1,0 +1,30 @@
+# AuraPay on Netlify deploys the frontend only.
+#
+# `apps/api` is a long-lived process, not a request handler: it runs the SQL job
+# queue that actually settles payments, streams SSE at `/v1/realtime/stream`,
+# holds session state and keeps its rate-limit buckets in memory. A serverless
+# function is frozen between invocations, so nothing would advance a payment
+# after the response was sent. Host it somewhere with a persistent process and
+# point `AURAPAY_API_ORIGIN` (see `apps/web/middleware.ts`) at that origin — the
+# Next middleware proxies `/v1/*` to it, which is what keeps the session cookie
+# same-origin and the CSRF host check working.
+#
+# CAREFUL: a build command or publish directory saved in the Netlify UI overrides
+# this file. A log line like `commandOrigin: ui` means the UI value won. The build
+# is kept alive regardless by `prebuild` in `apps/web/package.json`, which compiles
+# `@aurapay/shared` first — the ordering is encoded in the workspace, so any
+# command that builds `@aurapay/web` gets it whether or not this file is honoured.
+
+[build]
+  # `@aurapay/shared` resolves through `packages/shared/dist`, which is gitignored.
+  # On a fresh clone that directory does not exist, so webpack cannot resolve the
+  # bare specifier and `next build` dies with "Module not found: @aurapay/shared".
+  # Building shared first is redundant with the web workspace's `prebuild`; it is
+  # spelled out here so the required order is legible in the deploy config itself.
+  command = "npm run build -w @aurapay/shared && npm run build -w @aurapay/web"
+  publish = "apps/web/.next"
+
+[build.environment]
+  # package.json engines require >=20.11. This is the line Netlify picked Node
+  # 24.20.0 from (no pin), and it is what the build was verified against.
+  NODE_VERSION = "22"

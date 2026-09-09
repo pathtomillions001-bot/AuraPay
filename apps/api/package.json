@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "NODE_ENV=development tsx watch --clear-screen=false src/main.ts",
+    "prebuild": "npm --prefix ../.. run build -w @aurapay/shared",
     "build": "tsc -p tsconfig.json",
     "start": "NODE_ENV=production node dist/main.js",
     "seed": "tsx src/seed/run.ts",

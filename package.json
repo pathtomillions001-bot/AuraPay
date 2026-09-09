@@ -20,7 +20,7 @@
     "start:api": "npm run start -w @aurapay/api",
     "start:web": "npm run start -w @aurapay/web",
     "seed": "npm run seed -w @aurapay/api",
-    "typecheck": "npm run typecheck --workspaces --if-present",
+    "typecheck": "npm run build -w @aurapay/shared && npm run typecheck --workspaces --if-present",
     "test": "npm run test -w @aurapay/api && npm run test -w @aurapay/shared",
     "lint": "eslint . --ext .ts,.tsx --max-warnings 0"
   },
