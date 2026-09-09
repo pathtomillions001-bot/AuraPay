@@ -129,7 +129,7 @@ async function createInner(input: CreatePaymentInput): Promise<{ payment: Return
       { strongConfirmationRequired: true, recipientName: recipient.displayName ?? null, verified: recipient.verification?.verified === true },
     );
   }
-  compliance.assertStepUp(input.strongConfirmation === true, quote.recipientAmountMinor);
+  compliance.assertStepUp(input.strongConfirmation === true, quote.recipientAmountMinor, input.userId);
 
   const hold = wallets.hold({ userId: input.userId, asset, network: quote.network, amountMinor });
   if (!hold.ok) {

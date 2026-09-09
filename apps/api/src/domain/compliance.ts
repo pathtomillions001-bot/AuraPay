@@ -220,7 +220,12 @@ export function requiresStepUp(userId: string, amountMinor: bigint): boolean {
   return amountMajor >= (limits.strongConfirmFromKes || Number.MAX_SAFE_INTEGER);
 }
 
-export function assertStepUp(strongConfirmation: boolean, amountMinor: bigint): void {
+export function assertStepUp(strongConfirmation: boolean, amountMinor: bigint, userId: string): void {
+  // Below the tier threshold there is nothing to step up *to*, and a payer who did
+  // not tick a confirmation box that never appeared has done nothing wrong. Gating on
+  // the same `requiresStepUp` the friendly prompt uses keeps this a backstop rather
+  // than a second, stricter policy that refuses ordinary payments outright.
+  if (!requiresStepUp(userId, amountMinor)) return;
   if (!strongConfirmation) {
     throw new DomainError(
       'CONFLICT',
